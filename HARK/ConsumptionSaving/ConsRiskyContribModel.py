@@ -8,49 +8,55 @@ asset.
 The model is described in detail in the REMARK:
 https://econ-ark.org/materials/riskycontrib
 
-@software{mateo_velasquez_giraldo_2021_4977915,
-  author       = {Mateo Velásquez-Giraldo},
-  title        = {{Mv77/RiskyContrib: A Two-Asset Savings Model with 
-                   an Income-Contribution Scheme}},
-  month        = jun,
-  year         = 2021,
-  publisher    = {Zenodo},
-  version      = {v1.0.1},
-  doi          = {10.5281/zenodo.4977915},
-  url          = {https://doi.org/10.5281/zenodo.4977915}
-}
+.. code:: bibtex
+
+   @software{mateo_velasquez_giraldo_2021_4977915,
+     author       = {Mateo Velásquez-Giraldo},
+     title        = {{Mv77/RiskyContrib: A Two-Asset Savings Model with
+                      an Income-Contribution Scheme}},
+     month        = jun,
+     year         = 2021,
+     publisher    = {Zenodo},
+     version      = {v1.0.1},
+     doi          = {10.5281/zenodo.4977915},
+     url          = {https://doi.org/10.5281/zenodo.4977915}
+   }
 
 """
-import numpy as np
-from copy import deepcopy
-from HARK import MetricObject, NullFunc  # Basic HARK features
-from HARK.ConsumptionSaving.ConsIndShockModel import (
-    utility,  # CRRA utility function
-    utility_inv,  # Inverse CRRA utility function
-    utilityP,  # CRRA marginal utility function
-    utilityP_inv,  # Inverse CRRA marginal utility function
-    init_lifecycle,
-)
 
+from copy import deepcopy
+
+import numpy as np
+
+from HARK import NullFunc  # Basic HARK features
+from HARK.ConsumptionSaving.ConsIndShockModel import utility  # CRRA utility function
+from HARK.ConsumptionSaving.ConsIndShockModel import (
+    utility_inv,  # Inverse CRRA utility function
+)
+from HARK.ConsumptionSaving.ConsIndShockModel import (
+    utilityP,  # CRRA marginal utility function
+)
+from HARK.ConsumptionSaving.ConsIndShockModel import (
+    utilityP_inv,  # Inverse CRRA marginal utility function
+)
+from HARK.ConsumptionSaving.ConsIndShockModel import init_lifecycle
 from HARK.ConsumptionSaving.ConsRiskyAssetModel import (
     RiskyAssetConsumerType,
-    risky_asset_parms,
     init_risky_asset,
+    IndShockRiskyAssetConsumerType_constructor_default,
 )
-
-from HARK.distribution import calc_expectation
-
+from HARK.distributions import calc_expectation
+from HARK.interpolation import BilinearInterp  # 2D interpolator
 from HARK.interpolation import (
-    LinearInterp,  # Piecewise linear interpolation
-    BilinearInterp,  # 2D interpolator
-    TrilinearInterp,  # 3D interpolator
     ConstantFunction,  # Interpolator-like class that returns constant value
-    IdentityFunction,  # Interpolator-like class that returns one of its arguments
-    ValueFuncCRRA,
-    MargValueFuncCRRA,
-    DiscreteInterp,
 )
-
+from HARK.interpolation import (
+    IdentityFunction,  # Interpolator-like class that returns one of its arguments
+)
+from HARK.interpolation import LinearInterp  # Piecewise linear interpolation
+from HARK.interpolation import TrilinearInterp  # 3D interpolator
+from HARK.interpolation import DiscreteInterp, MargValueFuncCRRA, ValueFuncCRRA
+from HARK.metric import MetricObject
 from HARK.utilities import make_grid_exp_mult
 
 
@@ -62,9 +68,10 @@ class RiskyContribConsumerType(RiskyAssetConsumerType):
     asset.
 
     The frictions are:
-        - A proportional tax on funds moved from the risky to the risk-free
-         asset.
-        - A stochastic inability to move funds between his accounts.
+
+    - A proportional tax on funds moved from the risky to the risk-free
+      asset.
+    - A stochastic inability to move funds between his accounts.
 
     To partially avoid the second friction, the agent can commit to have a
     fraction of his labor income, which is usually deposited in his risk-free
@@ -92,7 +99,6 @@ class RiskyContribConsumerType(RiskyAssetConsumerType):
     shock_vars_ = RiskyAssetConsumerType.shock_vars_
 
     def __init__(self, verbose=False, quiet=False, joint_dist_solver=False, **kwds):
-
         params = init_risky_contrib.copy()
         params.update(kwds)
         kwds = params
@@ -135,7 +141,6 @@ class RiskyContribConsumerType(RiskyAssetConsumerType):
         self.update_solution_terminal()
 
     def update(self):
-
         RiskyAssetConsumerType.update(self)
         self.update_share_grid()
         self.update_dfrac_grid()
@@ -421,9 +426,9 @@ class RiskyContribConsumerType(RiskyAssetConsumerType):
         # Advance time for all agents
         self.t_age = self.t_age + 1  # Age all consumers by one period
         self.t_cycle = self.t_cycle + 1  # Age all consumers within their cycle
-        self.t_cycle[
-            self.t_cycle == self.T_cycle
-        ] = 0  # Resetting to zero for those who have reached the end
+        self.t_cycle[self.t_cycle == self.T_cycle] = (
+            0  # Resetting to zero for those who have reached the end
+        )
 
     def get_states_Reb(self):
         """
@@ -473,7 +478,6 @@ class RiskyContribConsumerType(RiskyAssetConsumerType):
 
         # Loop over each period of the cycle, getting controls separately depending on "age"
         for t in range(self.T_cycle):
-
             # Find agents in this period-stage
             these = t == self.t_cycle
 
@@ -510,8 +514,7 @@ class RiskyContribConsumerType(RiskyAssetConsumerType):
 
         # Post-states are assets after rebalancing
 
-        if not "tau" in self.time_vary:
-
+        if "tau" not in self.time_vary:
             mNrmTilde, nNrmTilde = rebalance_assets(
                 self.controls["dfrac"],
                 self.state_now["mNrm"],
@@ -520,14 +523,12 @@ class RiskyContribConsumerType(RiskyAssetConsumerType):
             )
 
         else:
-
             # Initialize
             mNrmTilde = np.zeros_like(self.state_now["mNrm"]) + np.nan
             nNrmTilde = np.zeros_like(self.state_now["mNrm"]) + np.nan
 
             # Loop over each period of the cycle, getting controls separately depending on "age"
             for t in range(self.T_cycle):
-
                 # Find agents in this period-stage
                 these = t == self.t_cycle
 
@@ -553,7 +554,6 @@ class RiskyContribConsumerType(RiskyAssetConsumerType):
 
         # Loop over each period of the cycle, getting controls separately depending on "age"
         for t in range(self.T_cycle):
-
             # Find agents in this period-stage
             these = t == self.t_cycle
 
@@ -600,7 +600,6 @@ class RiskyContribConsumerType(RiskyAssetConsumerType):
 
         # Loop over each period of the cycle, getting controls separately depending on "age"
         for t in range(self.T_cycle):
-
             # Find agents in this period-stage
             these = t == self.t_cycle
 
@@ -630,6 +629,7 @@ class RiskyContribConsumerType(RiskyAssetConsumerType):
 
 
 # %% Classes for RiskyContrib type solution objects
+
 
 # Class for asset adjustment stage solution
 class RiskyContribRebSolution(MetricObject):
@@ -687,7 +687,6 @@ class RiskyContribRebSolution(MetricObject):
         dvdnFunc_Fxd=None,
         dvdsFunc_Fxd=None,
     ):
-
         # Rebalancing stage
         if vFunc_Adj is None:
             vFunc_Adj = NullFunc()
@@ -780,7 +779,6 @@ class RiskyContribShaSolution(MetricObject):
         dvdnFunc_Fxd=None,
         dvdsFunc_Fxd=None,
     ):
-
         # Contribution stage, adjust
         if vFunc_Adj is None:
             vFunc_Adj = NullFunc()
@@ -849,7 +847,6 @@ class RiskyContribCnsSolution(MetricObject):
         dvdnFunc=None,
         dvdsFunc=None,
     ):
-
         if vFunc is None:
             vFunc = NullFunc()
         if cFunc is None:
@@ -888,7 +885,6 @@ class RiskyContribSolution(MetricObject):
     distance_criteria = ["stage_sols"]
 
     def __init__(self, Reb, Sha, Cns):
-
         # Dictionary of stage solutions
         self.stage_sols = {"Reb": Reb, "Sha": Sha, "Cns": Cns}
 
@@ -905,7 +901,7 @@ def rebalance_assets(d, m, n, tau):
     ----------
     d : np.array
         Array with rebalancing decisions. d > 0 represents depositing d*m into
-        the risky asset account. d<0 represents withdrawing |d|*n (pre-tax)
+        the risky asset account. d<0 represents withdrawing ``|d|*n`` (pre-tax)
         from the risky account into the risky account.
     m : np.array
         Initial risk-free assets.
@@ -1016,6 +1012,7 @@ def n_nrm_next(shocks, nNrm, Share, PermGroFac):
 
 # %% RiskyContrib solvers
 
+
 # Consumption stage solver
 def solve_RiskyContrib_Cns(
     solution_next,
@@ -1037,7 +1034,7 @@ def solve_RiskyContrib_Cns(
     AdjustPrb,
     DiscreteShareBool,
     joint_dist_solver,
-    **unused_params
+    **unused_params,
 ):
     """
     Solves the consumption stage of the agent's problem
@@ -1129,7 +1126,6 @@ def solve_RiskyContrib_Cns(
     # Start by constructing functions for next-period's pre-adjustment-shock
     # expected value functions
     if AdjustPrb < 1.0:
-
         dvdm_next = lambda m, n, s: AdjustPrb * dvdmFunc_Reb_Adj_next(m, n) + (
             1.0 - AdjustPrb
         ) * dvdmFunc_Reb_Fxd_next(m, n, s)
@@ -1140,13 +1136,11 @@ def solve_RiskyContrib_Cns(
 
         # Value function if needed
         if vFuncBool:
-
             v_next = lambda m, n, s: AdjustPrb * vFunc_Reb_Adj_next(m, n) + (
                 1.0 - AdjustPrb
             ) * vFunc_Reb_Fxd_next(m, n, s)
 
     else:
-
         dvdm_next = lambda m, n, s: dvdmFunc_Reb_Adj_next(m, n)
         dvdn_next = lambda m, n, s: dvdnFunc_Reb_Adj_next(m, n)
         dvds_next = ConstantFunction(0.0)
@@ -1155,7 +1149,6 @@ def solve_RiskyContrib_Cns(
             v_next = lambda m, n, s: vFunc_Reb_Adj_next(m, n)
 
     if IndepDstnBool and not joint_dist_solver:
-
         # If income and returns are independent we can use the law of iterated
         # expectations to speed up the computation of end-of-period derivatives
 
@@ -1166,7 +1159,6 @@ def solve_RiskyContrib_Cns(
         # as functions of those and the contribution share
 
         def post_return_derivs(inc_shocks, b_aux, g_aux, s):
-
             perm_shk = inc_shocks[0]
             tran_shk = inc_shocks[1]
 
@@ -1232,7 +1224,6 @@ def solve_RiskyContrib_Cns(
         pr_dvds_func = TrilinearInterp(pr_derivs[2], b_aux_grid, g_aux_grid, ShareGrid)
 
         if vFuncBool:
-
             pr_vFunc = ValueFuncCRRA(
                 TrilinearInterp(uInv(pr_derivs[3]), b_aux_grid, g_aux_grid, ShareGrid),
                 CRRA,
@@ -1286,7 +1277,6 @@ def solve_RiskyContrib_Cns(
                 return np.stack([end_of_prd_dvda, end_of_prd_dvdn, end_of_prd_dvds])
 
     else:
-
         # If income and returns are not independent, we just integrate over
         # them jointly.
 
@@ -1412,13 +1402,11 @@ def solve_RiskyContrib_Cns(
     Share_N = ShareGrid.size
     for nInd in range(nNrm_N):
         for sInd in range(Share_N):
-
             # Extract the endogenous m grid for particular (n,s).
             m_ns = mNrm_end[:, nInd, sInd]
 
             # Check if there is a natural constraint
             if m_ns[0] == 0.0:
-
                 # There's no need to insert points since we have m==0.0
 
                 # c
@@ -1437,7 +1425,6 @@ def solve_RiskyContrib_Cns(
                 )
 
             else:
-
                 # We know that:
                 # -The lowest gridpoints of both a and n are 0.
                 # -Consumption at m < m0 is m.
@@ -1518,7 +1505,7 @@ def solve_RiskyContrib_Sha(
     ShareGrid,
     DiscreteShareBool,
     vFuncBool,
-    **unused_params
+    **unused_params,
 ):
     """
     Solves the income-contribution-share stag of the agent's problem
@@ -1581,7 +1568,6 @@ def solve_RiskyContrib_Sha(
             vNvrsSha = vFunc_Cns_next.vFuncNvrs(mNrm_tiled, nNrm_tiled, opt_Share)
 
     else:
-
         # Figure out optimal share by evaluating all alternatives at all
         # (m,n) combinations
         m_idx_tiled, n_idx_tiled = np.meshgrid(
@@ -1593,7 +1579,6 @@ def solve_RiskyContrib_Sha(
         )
 
         if DiscreteShareBool:
-
             # Evaluate value function to optimize over shares.
             # Do it in inverse space
             vNvrs = vFunc_Cns_next.vFuncNvrs(mNrm_tiled, nNrm_tiled, Share_tiled)
@@ -1610,7 +1595,6 @@ def solve_RiskyContrib_Sha(
             nNrm_tiled = nNrm_tiled[:, :, 0]
 
         else:
-
             # Evaluate the marginal value of the contribution share at
             # every (m,n,s) gridpoint
             dvds = dvdsFunc_Cns_next(mNrm_tiled, nNrm_tiled, Share_tiled)
@@ -2041,6 +2025,21 @@ risky_contrib_params = {
     # Grid for finding the optimal rebalancing flow
     "dCount": 20,
 }
+risky_asset_params = {
+    # Risky return factor moments. Based on SP500 real returns from Shiller's
+    # "chapter 26" data, which can be found at https://www.econ.yale.edu/~shiller/data.htm
+    "RiskyAvg": 1.080370891,
+    "RiskyStd": 0.177196585,
+    "ShareCount": 25,  # Number of discrete points in the risky share approximation
+    # Number of integration nodes to use in approximation of risky returns
+    "RiskyCount": 5,
+    # Probability that the agent can adjust their portfolio each period
+    "AdjustPrb": 1.0,
+    # When simulating the model, should all agents get the same risky return in
+    # a given period?
+    "sim_common_Rrisky": True,
+    "constructors": IndShockRiskyAssetConsumerType_constructor_default,
+}
 
 # Infinite horizon version
 init_risky_contrib = init_risky_asset.copy()
@@ -2048,5 +2047,5 @@ init_risky_contrib.update(risky_contrib_params)
 
 # Lifecycle version
 init_risky_contrib_lifecycle = init_lifecycle.copy()
-init_risky_contrib_lifecycle.update(risky_asset_parms)
+init_risky_contrib_lifecycle.update(risky_asset_params)
 init_risky_contrib_lifecycle.update(risky_contrib_params)

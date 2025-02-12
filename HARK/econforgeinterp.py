@@ -1,9 +1,8 @@
-from HARK.core import MetricObject
-from interpolation.splines import eval_linear, eval_spline, CGrid
+import numpy as np
+from interpolation.splines import CGrid, eval_linear, eval_spline
 from interpolation.splines import extrap_options as xto
 
-import numpy as np
-from copy import copy
+from HARK.metric import MetricObject
 
 extrap_opts = {
     "linear": xto.LINEAR,
@@ -21,23 +20,29 @@ class LinearFast(MetricObject):
 
     distance_criteria = ["f_val", "grid_list"]
 
-    def __init__(self, f_val, grids, extrap_mode="linear"):
+    def __init__(self, f_val, grids, extrap_mode="linear", prebuilt_grid=None):
         """
         f_val: numpy.array
-            An array containing the values of the function at the grid points.
+        An array containing the values of the function at the grid points.
             It's i-th dimension must be of the same lenght as the i-th grid.
             f_val[i,j,k] must be f(grids[0][i], grids[1][j], grids[2][k]).
         grids: [numpy.array]
             One-dimensional list of numpy arrays. It's i-th entry must be the grid
             to be used for the i-th independent variable.
         extrap_mode: one of 'linear', 'nearest', or 'constant'
-            Determines how to extrapolate, using either nearest point, multilinear, or 
+            Determines how to extrapolate, using either nearest point, multilinear, or
             constant extrapolation. The default is multilinear.
+        prebuilt_grid: CGrid, optional
+            A prebuilt CGrid object to be used as the grid. If None, a new one
+            will be created using the grids provided. By default None.
         """
         self.dim = len(grids)
         self.f_val = f_val
         self.grid_list = grids
-        self.Grid = CGrid(*grids)
+        if prebuilt_grid is None:
+            self.Grid = CGrid(*grids)
+        else:
+            self.Grid = prebuilt_grid
 
         # Set up extrapolation options
         self.extrap_mode = extrap_mode
@@ -51,7 +56,7 @@ class LinearFast(MetricObject):
     def __call__(self, *args):
         """
         Calls the interpolator.
-        
+
         args: [numpy.array]
             List of arrays. The i-th entry contains the i-th coordinate
             of all the points to be evaluated. All entries must have the
@@ -106,7 +111,7 @@ class LinearFast(MetricObject):
             self.f_val,
             np.column_stack([x.flatten() for x in array_args]),
             out=None,
-            order=1,
+            k=1,
             diff=str(deriv_tuple),
             extrap_mode=self.extrap_mode,
         )
@@ -194,7 +199,11 @@ class DecayInterp(MetricObject):
     distance_criteria = ["interp"]
 
     def __init__(
-        self, interp, limit_fun, limit_grad=None, extrap_method="decay_prop",
+        self,
+        interp,
+        limit_fun,
+        limit_grad=None,
+        extrap_method="decay_prop",
     ):
         """
 
@@ -240,7 +249,7 @@ class DecayInterp(MetricObject):
     def __call__(self, *args):
         """
         Calls the interpolator with decay extrapolation.
-        
+
         args: [numpy.array]
             List of arrays. The i-th entry contains the i-th coordinate
             of all the points to be evaluated. All entries must have the
@@ -255,9 +264,7 @@ class DecayInterp(MetricObject):
         # Get indices, points, and closest in-grid point to points that
         # require extrapolation.
         upper_ex_inds = np.any(col_args > self.upper_limits[None, :], axis=1)
-        upper_ex_points = col_args[
-            upper_ex_inds,
-        ]
+        upper_ex_points = col_args[upper_ex_inds,]
         upper_ex_nearest = np.minimum(upper_ex_points, self.upper_limits[None, :])
 
         # Find function evaluations with regular extrapolation

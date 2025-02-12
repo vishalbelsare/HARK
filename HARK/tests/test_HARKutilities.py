@@ -1,12 +1,21 @@
 """
 This file implements unit tests to check HARK/utilities.py
 """
+
 # Bring in modules we need
 import unittest
-from types import SimpleNamespace
 
-import HARK.utilities
+import matplotlib.pyplot as plt
 import numpy as np
+
+from HARK.rewards import (
+    CRRAutility,
+    CRRAutilityP,
+    CRRAutilityPP,
+    CRRAutilityPPP,
+    CRRAutilityPPPP,
+)
+from HARK.utilities import make_assets_grid, make_figs
 
 
 class testsForHARKutilities(unittest.TestCase):
@@ -32,7 +41,6 @@ class testsForHARKutilities(unittest.TestCase):
         for c in self.c_vals:
             # Loop through different values of risk aversion
             for CRRA in self.CRRA_vals:
-
                 # Calculate the difference between the derivative of the function and the
                 # first difference approximation to that derivative.
                 diff = abs(
@@ -44,43 +52,37 @@ class testsForHARKutilities(unittest.TestCase):
 
     def test_CRRAutilityP(self):
         # Test the first derivative of the utility function
-        self.derivative_func_comparison(
-            HARK.utilities.CRRAutilityP, HARK.utilities.CRRAutility
-        )
+        self.derivative_func_comparison(CRRAutilityP, CRRAutility)
 
     def test_CRRAutilityPP(self):
         # Test the second derivative of the utility function
-        self.derivative_func_comparison(
-            HARK.utilities.CRRAutilityPP, HARK.utilities.CRRAutilityP
-        )
+        self.derivative_func_comparison(CRRAutilityPP, CRRAutilityP)
 
     def test_CRRAutilityPPP(self):
         # Test the third derivative of the utility function
-        self.derivative_func_comparison(
-            HARK.utilities.CRRAutilityPPP, HARK.utilities.CRRAutilityPP
-        )
+        self.derivative_func_comparison(CRRAutilityPPP, CRRAutilityPP)
 
     def test_CRRAutilityPPPP(self):
         # Test the fourth derivative of the utility function
-        self.derivative_func_comparison(
-            HARK.utilities.CRRAutilityPPPP, HARK.utilities.CRRAutilityPPP
-        )
+        self.derivative_func_comparison(CRRAutilityPPPP, CRRAutilityPPP)
 
     def test_asset_grid(self):
-        # test linear asset grid
-
+        # Test linear asset grid
         params = {
             "aXtraMin": 0.0,
             "aXtraMax": 1.0,
             "aXtraCount": 5,
-            "aXtraExtra": [None],
+            "aXtraExtra": None,
             "aXtraNestFac": -1,
         }
 
-        params = SimpleNamespace(**params)
-
-        aXtraGrid = HARK.utilities.construct_assets_grid(params)
-
+        aXtraGrid = make_assets_grid(**params)
         test = np.unique(np.diff(aXtraGrid).round(decimals=3))
-
         self.assertEqual(test.size, 1)
+
+    def test_make_figs(self):
+        # Test the make_figs() function with a trivial output
+        plt.figure()
+        plt.plot(np.linspace(1, 5, 40), np.linspace(4, 8, 40))
+        make_figs("test", True, False, target_dir="")
+        plt.clf()
